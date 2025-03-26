@@ -1,20 +1,11 @@
 import gradio as gr
 import os
 import socket
+import qrcode
+from io import BytesIO
 from pathlib import Path
 from config import SERVER_HOST, SERVER_PORT, STORAGE_DIR
-
-def get_local_ip():
-    """Get the local IP address of the machine"""
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    try:
-        s.connect(("192.168.1.1", 1))
-        local_ip = s.getsockname()[0]
-    except Exception:
-        local_ip = "127.0.0.1"
-    finally:
-        s.close()
-    return local_ip
+from network_utils import get_local_ip, get_server_url
 
 def list_files():
     """List all files in the current directory"""
@@ -67,23 +58,49 @@ def download_file(filename):
         gr.Warning(f"Error downloading file: {str(e)}")
         return None
 
+def generate_qr_code(url):
+    """Generate a QR code for the given URL"""
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_L,
+        box_size=10,
+        border=4,
+    )
+    qr.add_data(url)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white")
+    
+    # Save QR code to a temporary file
+    temp_file = str(STORAGE_DIR / "qrcode.png")
+    img.save(temp_file)
+    return temp_file
+
 with gr.Blocks(title="File Server") as demo:
     gr.Markdown("# File Server")
-    gr.Markdown("Upload and download files easily")
     
-    with gr.Column():
-        # Upload section    
-        gr.Markdown("Upload files")
-        file_input = gr.File(label="Choose file to upload")
-        upload_button = gr.Button("Upload")
-        upload_status = gr.Textbox(label="Upload Status", interactive=False)
+    # Server info section
+    server_url = get_server_url(SERVER_PORT)
+    gr.Markdown("## Server Information")
+    gr.Markdown(f"Server is running and accessible at: **{server_url}**")  
+    gr.Markdown("Scan this QR code to open on your mobile device:")
+    # Generate and save QR code before creating the Image component
+    qr_code_path = generate_qr_code(server_url)
+    gr.Image(value=qr_code_path, show_download_button=False)
+    
+    gr.Markdown("---")  # Horizontal line for separation
+    
+    # Upload section    
+    gr.Markdown("## Upload files")
+    file_input = gr.File(label="Choose file to upload")
+    upload_button = gr.Button("Upload")
+    upload_status = gr.Textbox(label="Upload Status", interactive=False)
 
-        # Download section
-        gr.Markdown("Download files")    
-        file_select = draw_files_dropdown()
-        refresh_button = gr.Button("Refresh file list")
-        download_button = gr.Button("Download")
-        file_output = gr.File()
+    # Download section
+    gr.Markdown("## Download files")    
+    file_select = draw_files_dropdown()
+    refresh_button = gr.Button("Refresh file list")
+    download_button = gr.Button("Download")
+    file_output = gr.File()
 
     # Set up event handlers
     upload_button.click(
@@ -105,13 +122,12 @@ with gr.Blocks(title="File Server") as demo:
     )
 
 if __name__ == "__main__":
-    local_ip = get_local_ip()
-    print(f"Server is running and accessible via http://{local_ip}:{SERVER_PORT}/")
+    print(f"Server is running and accessible via {get_server_url(SERVER_PORT)}")
     demo.launch(
         server_name=SERVER_HOST,
         server_port=SERVER_PORT,
         share=False,
         allowed_paths=[STORAGE_DIR],
-        show_error=True,  # Show detailed error messages
-        debug=True  # Enable debug mode
+        show_error=True,
+        debug=True
     )
