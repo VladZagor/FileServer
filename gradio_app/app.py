@@ -16,12 +16,15 @@ def list_files():
         return []
 
 def draw_files_dropdown():
-    """Create a dropdown with the list of files"""
+    """Create a dropdown with all files for selection"""
+    files = list_files()
+    if not files:
+        files = ["No files available"]
     return gr.Dropdown(
-            choices=list_files(),
-            label="Select file to download",
-            interactive=True
-        )
+        choices=files,
+        label="Select file to download",
+        interactive=True
+    )
 
 def upload_file(file):
     """Handle file upload"""
@@ -41,7 +44,7 @@ def upload_file(file):
 
 def download_file(filename):
     """Handle file download"""
-    if not filename:
+    if not filename or filename == "No files available":
         gr.Warning("No file selected")
         return None
         
@@ -77,30 +80,33 @@ def generate_qr_code(url):
 
 with gr.Blocks(title="File Server") as demo:
     gr.Markdown("# File Server")
-    
-    # Server info section
-    server_url = get_server_url(SERVER_PORT)
-    gr.Markdown("## Server Information")
-    gr.Markdown(f"Server is running and accessible at: **{server_url}**")  
-    gr.Markdown("Scan this QR code to open on your mobile device:")
-    # Generate and save QR code before creating the Image component
-    qr_code_path = generate_qr_code(server_url)
-    gr.Image(value=qr_code_path, show_download_button=False)
-    
-    gr.Markdown("---")  # Horizontal line for separation
-    
-    # Upload section    
-    gr.Markdown("## Upload files")
-    file_input = gr.File(label="Choose file to upload")
-    upload_button = gr.Button("Upload")
-    upload_status = gr.Textbox(label="Upload Status", interactive=False)
+    with gr.Row():
+        with gr.Column():
+            # Server info section
+            server_url = get_server_url(SERVER_PORT)
+            qr_code_path = generate_qr_code(server_url)
+            gr.Markdown("Scan this QR code to open on your mobile device")
+            gr.Image(value=qr_code_path, show_download_button=False)            
+            gr.Markdown(f"Server is running and accessible at: **{server_url}**")  
+            # Generate and save QR code before creating the Image component
 
-    # Download section
-    gr.Markdown("## Download files")    
-    file_select = draw_files_dropdown()
-    refresh_button = gr.Button("Refresh file list")
-    download_button = gr.Button("Download")
-    file_output = gr.File()
+        with gr.Column():        
+            # Upload section    
+            gr.Markdown("### Upload file")
+            file_input = gr.File(label="Choose file to upload")
+            upload_button = gr.Button("Upload")
+            upload_status = gr.Textbox(label="Upload Status", interactive=False)
+    
+    with gr.Row():
+        gr.Markdown("### Download files")
+
+    with gr.Row():
+        # Download section
+        with gr.Column():            
+            file_select = draw_files_dropdown()
+            refresh_button = gr.Button("Refresh file list")
+            download_button = gr.Button("Download")
+            file_output = gr.File()
 
     # Set up event handlers
     upload_button.click(
